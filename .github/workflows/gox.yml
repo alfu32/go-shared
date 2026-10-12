@@ -40,6 +40,16 @@ jobs:
             go build -o dist/gox ./cmd/gox
           fi
         working-directory: gox
+      - name: Build GoX-aware gopls
+        shell: bash
+        run: |
+          mkdir -p ../gox/dist
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            go build -o ../gox/dist/gopls.exe .
+          else
+            go build -o ../gox/dist/gopls .
+          fi
+        working-directory: gopls
       - uses: actions/upload-artifact@v4
         with:
           name: gox-${{ runner.os }}
@@ -75,7 +85,7 @@ jobs:
           pattern: gox-*
           path: release-assets
           merge-multiple: true
-      - name: Publish GoX CLI release
+      - name: Publish GoX CLI and gopls release
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -84,6 +94,7 @@ jobs:
           set -euo pipefail
           if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" release-assets/* --repo "$REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$REPOSITORY" --title "GoX and gopls $TAG"
           else
-            gh release create "$TAG" release-assets/* --repo "$REPOSITORY" --verify-tag --generate-notes --title "GoX $TAG"
+            gh release create "$TAG" release-assets/* --repo "$REPOSITORY" --verify-tag --generate-notes --title "GoX and gopls $TAG"
           fi

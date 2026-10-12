@@ -71,14 +71,10 @@ compatible with this distribution.
 
 ### Releases
 
-The `Shared toolchain release (Windows + Linux amd64)` GitHub Actions workflow
-builds and validates both platforms, then attaches the Windows ZIP, Linux
-tar.gz, and `SHA256SUMS` to a GitHub Release. Run it manually from the Actions
-tab and select a release tag matching `shared-toolchain-v*` in the “Use
-workflow from” selector. Pushes to `feature/shared-toolchain` run both platform
-builds and publish CI artifacts without creating a release. A manual tag run
-also attaches both packages to the GitHub Release. macOS arm64/amd64 remains
-unimplemented and untested.
+The GoX workflow builds the GoX CLI and GoX-aware gopls for Linux and Windows.
+Run it manually from the Actions tab; provide an existing release tag to publish
+both tools to that GitHub Release. Builds without a release tag validate the
+tools and upload CI artifacts only.
 
 The reusable native launcher and Linux smoke test, plus Python and Windows
 batch launchers and tests, are in `src/cmd/sharedlauncher/`.
