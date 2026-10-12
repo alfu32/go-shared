@@ -71,16 +71,15 @@ compatible with this distribution.
 
 ### Releases
 
-The GoX workflow builds the GoX CLI and GoX-aware `goxpls` for Linux and Windows.
-Run it manually from the Actions tab; provide an existing release tag to publish
-both tools to that GitHub Release. Builds without a release tag validate the
-tools and upload CI artifacts only.
+The Go release workflow builds Linux and Windows Go distributions and the
+GoX-aware `gopls` language server. Run it manually from the Actions tab; provide
+an existing release tag to publish the distributions and matching `gopls`
+executables to that GitHub Release.
 
-The Go command provides `go gox emit file.gox` for explicit source translation
-and `go lsp [gopls arguments]` as the language-server entry point. `go lsp`
-starts the sibling `bin/goxpls` executable (or `goxpls` from `PATH`) and forwards
-its arguments and standard streams. Build the server with
-`cd gopls && go build -o ../bin/goxpls .` to use it from this checkout.
+The Go command provides `go gox emit file.gox` for explicit source translation.
+The GoX-aware language server is the standard `gopls` executable. Install it
+with `cd gopls && go install .` to place it in `GOBIN` or `GOPATH/bin`, then
+configure your IDE to launch `gopls` directly.
 
 The reusable native launcher and Linux smoke test, plus Python and Windows
 batch launchers and tests, are in `src/cmd/sharedlauncher/`.

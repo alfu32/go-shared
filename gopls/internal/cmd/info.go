@@ -39,9 +39,9 @@ func (h *help) DetailedHelp(f *flag.FlagSet) {
 	fmt.Fprint(f.Output(), `
 
 Examples:
-$ goxpls help                         # main goxpls help message
-$ goxpls help remote                  # help on 'remote' command
-$ goxpls help remote sessions         # help on 'remote sessions' subcommand
+$ gopls help                         # main gopls help message
+$ gopls help remote                  # help on 'remote' command
+$ gopls help remote sessions         # help on 'remote sessions' subcommand
 `)
 	printFlagDefaults(f)
 }
@@ -84,7 +84,7 @@ type version struct {
 func (v *version) Name() string      { return "version" }
 func (v *version) Parent() string    { return v.app.Name() }
 func (v *version) Usage() string     { return "" }
-func (v *version) ShortHelp() string { return "print the goxpls version information" }
+func (v *version) ShortHelp() string { return "print the gopls version information" }
 func (v *version) DetailedHelp(f *flag.FlagSet) {
 	fmt.Fprint(f.Output(), ``)
 	printFlagDefaults(f)

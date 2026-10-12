@@ -75,11 +75,22 @@ jobs:
         shell: pwsh
         run: .\bin\go.exe test cmd/go/internal/fsys cmd/go/internal/modindex
 
+      - name: Build GoX-aware gopls on Linux
+        if: matrix.goos == 'linux'
+        run: go build -o ../bin/gopls .
+        working-directory: gopls
+
+      - name: Build GoX-aware gopls on Windows
+        if: matrix.goos == 'windows'
+        run: go build -o ..\bin\gopls.exe .
+        working-directory: gopls
+
       - uses: actions/upload-artifact@v4
         with:
           name: go-${{ matrix.goos }}-amd64
           path: src/pkg/distpack/*.${{ matrix.goos }}-amd64.*
           if-no-files-found: error
+          compression-level: 0
 
       - uses: actions/upload-artifact@v4
         if: matrix.goos == 'linux'
@@ -87,6 +98,14 @@ jobs:
           name: go-source
           path: src/pkg/distpack/*.src.tar.gz
           if-no-files-found: error
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gopls-${{ matrix.goos }}-amd64
+          path: bin/gopls*
+          if-no-files-found: error
+          compression-level: 0
 
   release:
     if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
@@ -95,7 +114,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: go-*
+          pattern: '*'
           path: release-assets
           merge-multiple: true
 

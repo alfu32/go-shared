@@ -182,15 +182,11 @@ that eager whole-module transformation.
 Cache entries include source bytes, transformation options, logical module/file
 identity and a hash of the transformer executable. Writes are atomic. Diagnostic
 `//line` directives point back to GoX. The API exposes line-level source mappings;
-generated helper locations are approximate. The workspace includes the GoX
-language server in `../gopls`, built as `goxpls`, with GoX file parsing and
-semantic highlighting for `F` interpolations and `X` markup. Build it from the
-repository root with `cd gopls && go build -o ../bin/goxpls .`; configure your
-editor to use that binary for `.gox` documents (Language ID `gox`). The Go
-command exposes the same server as `go lsp`, forwarding all gopls arguments.
-The original standalone prototype can still be built with
-`go build ./cmd/goxpls`, but the GoX-aware gopls fork is the full-featured
-language server.
+generated helper locations are approximate. The workspace includes a GoX-aware
+`gopls` in `../gopls`, with GoX file parsing and semantic highlighting for `F`
+interpolations and `X` markup. Install it with `cd gopls && go install .`; this
+places the standard `gopls` executable in `GOBIN` (or `GOPATH/bin`). Configure
+IDEs that support LSP to launch `gopls` directly.
 
 `TransformFile` operates on bytes. `TransformPackage` accepts selected files,
 a context for cancellation, and returns outputs and imports. File selection and

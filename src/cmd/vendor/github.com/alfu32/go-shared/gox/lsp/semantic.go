@@ -1,4 +1,4 @@
-package goxpls
+package goxlsp
 
 import (
 	"go/token"
@@ -80,12 +80,20 @@ func MaskGoXLiterals(src []byte) []byte {
 	last := -1
 	for _, r := range GoXLiteralRanges(src) {
 		start, end, kind := r[0], r[1], byte(r[2])
-		if start < last || start >= end { continue }
+		if start < last || start >= end {
+			continue
+		}
 		placeholder := `""`
-		if kind == 'X' { placeholder = "nil" }
-		if end-start < len(placeholder) { continue }
+		if kind == 'X' {
+			placeholder = "nil"
+		}
+		if end-start < len(placeholder) {
+			continue
+		}
 		for i := start; i < end; i++ {
-			if out[i] != '\n' && out[i] != '\r' { out[i] = ' ' }
+			if out[i] != '\n' && out[i] != '\r' {
+				out[i] = ' '
+			}
 		}
 		copy(out[start:], placeholder)
 		last = end
