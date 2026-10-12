@@ -34,14 +34,35 @@ jobs:
 
       - name: Build and package Linux Go distribution
         if: matrix.goos == 'linux'
-        run: GOROOT_BOOTSTRAP=$(go env GOROOT) ./make.bash -distpack
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            version="$RELEASE_TAG"
+          else
+            minor=$(sed -n 's/^const Version = \([0-9][0-9]*\)$/\1/p' internal/goversion/goversion.go)
+            version="go1.${minor}-devel"
+          fi
+          printf '%s\n' "$version" > ../VERSION
+          go_bin=$(readlink -f "$(command -v go)")
+          GOROOT_BOOTSTRAP="$(dirname "$(dirname "$go_bin")")" ./make.bash -distpack
         working-directory: src
 
       - name: Build and package Windows Go distribution
         if: matrix.goos == 'windows'
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
         shell: pwsh
         run: |
-          $env:GOROOT_BOOTSTRAP = (go env GOROOT)
+          if ($env:RELEASE_TAG) {
+            $version = $env:RELEASE_TAG
+          } else {
+            $minor = (Select-String -Path internal/goversion/goversion.go -Pattern '^const Version = ([0-9]+)$').Matches[0].Groups[1].Value
+            $version = "go1.$minor-devel"
+          }
+          Set-Content -NoNewline -Path ..\VERSION -Value "$version`n"
+          $goBin = (Get-Command go).Source
+          $env:GOROOT_BOOTSTRAP = Split-Path (Split-Path $goBin)
           .\make.bat -distpack
         working-directory: src
 
