@@ -2956,12 +2956,12 @@ func (p *parser) parseFile() *ast.File {
 		Comments:  p.comments,
 		GoVersion: p.goVersion,
 	}
-	p.finishGoX(f)
+	resolved := p.finishGoX(f)
 	var declErr func(token.Pos, string)
 	if p.mode&DeclarationErrors != 0 {
 		declErr = p.error
 	}
-	if p.mode&SkipObjectResolution == 0 {
+	if p.mode&SkipObjectResolution == 0 && !resolved {
 		resolveFile(f, p.file, declErr)
 	}
 

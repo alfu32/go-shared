@@ -6,7 +6,7 @@ package file
 
 import (
 	"crypto/sha256"
-	"fmt"
+	"encoding/hex"
 )
 
 // A Hash is a cryptographic digest of the contents of a file.
@@ -21,7 +21,7 @@ func HashOf(data []byte) Hash {
 
 // String returns the digest as a string of hex digits.
 func (h Hash) String() string {
-	return fmt.Sprintf("%64x", [sha256.Size]byte(h))
+	return hex.EncodeToString(h[:])
 }
 
 // XORWith updates *h to *h XOR h2.
