@@ -441,11 +441,17 @@ func (p *Package) copyBuild(opts PackageOpts, pp *build.Package) {
 	for _, files := range [][]string{pp.GoFiles, pp.CgoFiles, pp.TestGoFiles, pp.XTestGoFiles} {
 		for _, name := range files {
 			if original := fsys.GoXOriginal(filepath.Join(pp.Dir, name)); original != "" {
-				if p.GoXGeneratedFiles == nil {
-					p.GoXGeneratedFiles = map[string]string{}
+				// A GoX expression in a .go file is still represented by that
+				// ordinary Go file in GoFiles. Add a separate GoXFiles entry only
+				// when expansion changed the source filename (for .gox input), or
+				// AllFiles will contain the same path twice.
+				if filepath.Ext(original) == ".gox" {
+					if p.GoXGeneratedFiles == nil {
+						p.GoXGeneratedFiles = map[string]string{}
+					}
+					p.GoXFiles = append(p.GoXFiles, filepath.Base(original))
+					p.GoXGeneratedFiles[name] = filepath.Base(original)
 				}
-				p.GoXFiles = append(p.GoXFiles, filepath.Base(original))
-				p.GoXGeneratedFiles[name] = filepath.Base(original)
 			}
 		}
 	}
