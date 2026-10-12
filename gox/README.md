@@ -176,8 +176,13 @@ that eager whole-module transformation.
 Cache entries include source bytes, transformation options, logical module/file
 identity and a hash of the transformer executable. Writes are atomic. Diagnostic
 `//line` directives point back to GoX. The API exposes line-level source mappings;
-generated helper locations are approximate. There is no GoX-aware gopls/formatter
-integration yet: inspect emitted Go for type errors involving generated adapters.
+generated helper locations are approximate. The workspace includes a gopls
+fork in `../gopls` with GoX file parsing and semantic highlighting for `F`
+interpolations and `X` markup. Build it from this repository with
+`cd gopls && go build -o ../goxpls .`; configure your editor to use that binary
+for `.gox` documents (Language ID `gox`). The original standalone prototype
+can still be built with `go build ./cmd/goxpls`, but the gopls fork is the
+full-featured language server.
 
 `TransformFile` operates on bytes. `TransformPackage` accepts selected files,
 a context for cancellation, and returns outputs and imports. File selection and

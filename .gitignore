@@ -51,3 +51,26 @@ _testmain.go
 # For files created by specific development environment (e.g. editor),
 # use alternative ways to exclude files from git.
 # For example, set up .git/info/exclude or use a global .gitignore.
+shared-stage/bin/go
+shared-stage/bin/gofmt
+shared-stage/pkg/tool/linux_amd64/asm
+shared-stage/pkg/tool/linux_amd64/cgo
+shared-stage/pkg/tool/linux_amd64/compile
+shared-stage/pkg/tool/linux_amd64/cover
+shared-stage/pkg/tool/linux_amd64/export
+shared-stage/pkg/tool/linux_amd64/fix
+shared-stage/pkg/tool/linux_amd64/link
+shared-stage/pkg/tool/linux_amd64/preprofile
+shared-stage/pkg/tool/linux_amd64/vet
+native/bin/go-native
+native/bin/gofmt-native
+native/pkg/tool/linux_amd64/asm-native
+native/pkg/tool/linux_amd64/cgo-native
+native/pkg/tool/linux_amd64/compile-native
+native/pkg/tool/linux_amd64/cover-native
+native/pkg/tool/linux_amd64/export-native
+native/pkg/tool/linux_amd64/fix-native
+native/pkg/tool/linux_amd64/link-native
+native/pkg/tool/linux_amd64/preprofile-native
+native/pkg/tool/linux_amd64/vet-native
+gox/dist/gox
