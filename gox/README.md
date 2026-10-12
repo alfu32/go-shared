@@ -113,6 +113,9 @@ and `UseEffect` provide the component hooks. For example, a GoX component may de
 
 ## Runtime
 
+See the [React and VDOM manual](../docs/gox/REACT_VDOM_MANUAL.md) for a complete
+guide to components, hooks, reconciliation, renderer adapters, and frame events.
+
 `vdom.NewRoot(commit, wake)` creates a root. `Mount(node)` renders;
 `Tree()` returns the headless tree; attribute callback values serve as event
 handlers. Invoke a callback, then call `Flush()` to process its queued updates.
