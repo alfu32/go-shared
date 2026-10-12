@@ -11,7 +11,9 @@ for p in source.rglob('*'):
     if p.is_file() and ((p.suffix=='.go' and not p.name.endswith('_test.go') and 'testdata' not in rel.parts and rel.parts[0]!='cmd') or p.name in ('LICENSE','UPSTREAM.md')):
         q=dest/rel;q.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(p,q)
 modules=root/'src/cmd/vendor/modules.txt'
-lines=modules.read_text().splitlines()
+raw=modules.read_bytes()
+newline='\r\n' if b'\r\n' in raw else '\n'
+lines=raw.decode().splitlines()
 lines=[s for s in lines if 'github.com/alfu32/go-shared/gox' not in s]
 # Remove only our following explicit marker by rebuilding the prior section first.
 text='\n'.join(lines)+'\n'
@@ -21,4 +23,4 @@ text+='# github.com/alfu32/go-shared/gox v0.0.0 => ../../gox\n## explicit; go 1.
 for package in ('','/internal/parser','/internal/scanner'):
     text+='github.com/alfu32/go-shared/gox'+package+'\n'
 text+='# github.com/alfu32/go-shared/gox => ../../gox\n'
-modules.write_text(text)
+modules.write_bytes(text.replace('\n',newline).encode())
