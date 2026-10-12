@@ -1,8 +1,6 @@
 name: Shared toolchain release (Windows + Linux amd64)
 
 on:
-  push:
-    branches: [feature/shared-toolchain]
   workflow_dispatch:
 
 permissions:
