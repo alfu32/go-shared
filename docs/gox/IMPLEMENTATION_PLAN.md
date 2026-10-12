@@ -100,7 +100,8 @@ semantically tested Go output, not just token recognition.
 - [x] Implement unmount cleanup, panic bookkeeping recovery and headless host
   tree/event adapter; keep host mutations outside render.
 - [x] Document v1 hook placement restrictions, snapshot callbacks, ref threading,
-  no live-edit state migration and deferred effects/production renderers.
+  no live-edit state migration, post-commit effects and deferred production
+  renderers.
 
 ### M1.6 Required semantic and error matrix
 

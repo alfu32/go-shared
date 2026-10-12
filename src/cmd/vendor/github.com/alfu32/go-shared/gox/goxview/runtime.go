@@ -25,6 +25,16 @@ type Definition struct {
 	Render func(*Instance, []Attr, []Node) Node
 }
 
+// Renderer receives committed virtual trees. Implementations own all host
+// drawing and input-device integration; the reconciler only produces Nodes.
+type Renderer interface{ Render(Node) }
+
+// InteractiveRenderer can send input and other host events to the runner.
+type InteractiveRenderer interface {
+	Renderer
+	SetEventSink(func(Event))
+}
+
 func Define(id string, f func(*Instance, []Attr, []Node) Node) *Definition { return &Definition{id, f} }
 func Element(tag string, attrs []Attr, children []Node) Node {
 	n := Node{Tag: tag, Children: children}
@@ -90,13 +100,14 @@ type update struct {
 	f func()
 }
 type Root struct {
-	mu           sync.Mutex
-	queue        []update
-	rendering    atomic.Bool
-	instances    map[string]*Instance
-	source, tree Node
-	commit       func(Node)
-	wake         func()
+	mu             sync.Mutex
+	queue          []update
+	rendering      atomic.Bool
+	instances      map[string]*Instance
+	source, tree   Node
+	commit         func(Node)
+	wake           func()
+	pendingEffects []*effectHook
 }
 
 func NewRoot(commit func(Node), wake func()) *Root {
@@ -116,6 +127,13 @@ func (r *Root) Mount(n Node) error {
 	return nil
 }
 func (r *Root) Unmount() {
+	for _, i := range r.instances {
+		for _, slot := range i.slots {
+			if h, ok := slot.(*effectHook); ok && h.cleanup != nil {
+				h.cleanup()
+			}
+		}
+	}
 	for _, i := range r.instances {
 		i.alive.Store(false)
 	}
@@ -192,10 +210,17 @@ func (r *Root) render() (err error) {
 	if !r.rendering.CompareAndSwap(false, true) {
 		return fmt.Errorf("recursive render")
 	}
+	r.pendingEffects = nil
 	defer r.rendering.Store(false)
 	next := map[string]*Instance{}
 	defer func() {
 		if v := recover(); v != nil {
+			for _, h := range r.pendingEffects {
+				h.pending = false
+				h.pendingDeps = nil
+				h.pendingRun = nil
+			}
+			r.pendingEffects = nil
 			for p, i := range next {
 				if r.instances[p] != i {
 					i.alive.Store(false)
@@ -208,6 +233,11 @@ func (r *Root) render() (err error) {
 	for p, i := range r.instances {
 		if next[p] != i {
 			i.alive.Store(false)
+			for _, slot := range i.slots {
+				if h, ok := slot.(*effectHook); ok && h.cleanup != nil {
+					h.cleanup()
+				}
+			}
 		}
 	}
 	r.instances = next
@@ -216,6 +246,18 @@ func (r *Root) render() (err error) {
 	if r.commit != nil {
 		r.commit(tree)
 	}
+	for _, h := range r.pendingEffects {
+		if h.cleanup != nil {
+			h.cleanup()
+		}
+		h.run = h.pendingRun
+		h.deps = h.pendingDeps
+		h.cleanup = h.run()
+		h.pending = false
+		h.pendingDeps = nil
+		h.pendingRun = nil
+	}
+	r.pendingEffects = nil
 	return nil
 }
 func (r *Root) resolve(n Node, path string, ctx map[uint64]any, next map[string]*Instance) Node {
@@ -308,6 +350,41 @@ func UseState[T any](i *Instance, slot string, initial T) (T, StateSetter[T]) {
 }
 
 type Ref[T any] struct{ Current T }
+
+type effectHook struct {
+	deps        []any
+	run         func() func()
+	cleanup     func()
+	pendingDeps []any
+	pendingRun  func() func()
+	pending     bool
+}
+
+// UseEffect runs effect after a successful commit. If dependencies are
+// supplied, it reruns when any dependency changes. With no dependencies it
+// runs after every successful render. Cleanup runs before the next effect and
+// when its component unmounts.
+func UseEffect(i *Instance, slot string, effect func() func(), deps ...any) {
+	requireRender(i)
+	var h *effectHook
+	if old, ok := i.slots[slot]; ok {
+		var valid bool
+		h, valid = old.(*effectHook)
+		if !valid {
+			panic("hook type changed")
+		}
+	} else {
+		h = &effectHook{}
+		i.slots[slot] = h
+	}
+	changed := h.run == nil || len(deps) == 0 || !reflect.DeepEqual(h.deps, deps)
+	if changed && !h.pending {
+		h.pendingDeps = append([]any(nil), deps...)
+		h.pendingRun = effect
+		h.pending = true
+		i.root.pendingEffects = append(i.root.pendingEffects, h)
+	}
+}
 
 func UseRef[T any](i *Instance, slot string, initial T) *Ref[T] {
 	requireRender(i)

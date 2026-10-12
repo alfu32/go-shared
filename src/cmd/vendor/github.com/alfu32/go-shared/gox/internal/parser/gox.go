@@ -527,6 +527,12 @@ func (p *parser) rewriteHooks(body *ast.BlockStmt, instance string) {
 					allowed[c] = true
 				}
 			}
+		} else if e, ok := s.(*ast.ExprStmt); ok {
+			if c, ok := e.X.(*ast.CallExpr); ok {
+				if f, ok := c.Fun.(*ast.Ident); ok && f.Name == "useEffect" {
+					allowed[c] = true
+				}
+			}
 		}
 	}
 	ast.Inspect(body, func(n ast.Node) bool {
@@ -551,12 +557,12 @@ func (p *parser) rewriteHooks(body *ast.BlockStmt, instance string) {
 		if name == nil || name.Obj != nil || slices.Contains(p.hookBindings, name.Name) {
 			return true
 		}
-		mapped := map[string]string{"useState": "UseState", "useRef": "UseRef", "useContext": "UseContext"}[name.Name]
+		mapped := map[string]string{"useState": "UseState", "useRef": "UseRef", "useContext": "UseContext", "useEffect": "UseEffect"}[name.Name]
 		if mapped == "" {
 			return true
 		}
 		if !allowed[c] {
-			p.error(c.Pos(), "hooks must be direct top-level component assignments")
+			p.error(c.Pos(), "hooks must be direct top-level component statements")
 			return false
 		}
 		p.hooks++

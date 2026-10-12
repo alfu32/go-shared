@@ -80,13 +80,13 @@ func PackageHookBindings(files map[string][]byte) (map[string][]string, error) {
 	sort.Strings(names)
 	for _, filename := range names {
 		src := files[filename]
-		f, e := gxparser.ParseFileWithBindings(token.NewFileSet(), filename, src, gxparser.GoX|gxparser.BareJSX|gxparser.SkipObjectResolution, filename, []string{"useState", "useRef", "useContext"})
+		f, e := gxparser.ParseFileWithBindings(token.NewFileSet(), filename, src, gxparser.GoX|gxparser.BareJSX|gxparser.SkipObjectResolution, filename, []string{"useState", "useRef", "useContext", "useEffect"})
 		if e != nil {
 			return nil, e
 		}
 		add := func(n string) {
 			switch n {
-			case "useState", "useRef", "useContext":
+			case "useState", "useRef", "useContext", "useEffect":
 				out[f.Name.Name] = append(out[f.Name.Name], n)
 			}
 		}

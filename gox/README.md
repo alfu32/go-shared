@@ -89,10 +89,11 @@ children; `key` is reserved occurrence metadata. Components may be declared in
 functions and capture those functions' variables. Their definitions describe
 render code; each mounted occurrence owns a separate persistent instance.
 
-Hooks must be direct, unconditional assignments at the beginning of component
-execution, before control-flow statements. Ordinary locally bound functions
-named `useState`, `useRef` or `useContext` retain their meaning. Hook calls in
-branches, loops, callbacks and after conditional control flow are rejected.
+Hooks must be direct, unconditional statements at the beginning of component
+execution, before control-flow statements. `useState`, `useRef` and `useContext`
+are assignments; `useEffect` is an expression statement. Ordinary locally bound
+functions with these names retain their meaning. Hook calls in branches, loops,
+callbacks and after conditional control flow are rejected.
 
 The generated component value exposes a `GoXDefinition` runtime definition,
 per-property typed adapters and a structural validation function. This ABI is
@@ -106,8 +107,8 @@ children, component definition and key), `Attr` (`Name` and typed `Value`),
 `Definition`/`Instance` for component rendering, and `Root` for mounting and
 updating a tree. `Element`, `Component`, `Text`, `Child` and `Prop[T]` build or
 inspect values. `NewRoot` creates the host root; `Mount`, `Tree`, `Flush` and
-`Unmount` control it. `NewContext[T]`, `UseContext`, `UseState[T]` and `UseRef[T]`
-provide the component hooks. For example, a GoX component may declare
+`Unmount` control it. `NewContext[T]`, `UseContext`, `UseState[T]`, `UseRef[T]`
+and `UseEffect` provide the component hooks. For example, a GoX component may declare
 `children []vdom.Node` without importing the runtime package.
 
 ## Runtime
@@ -117,6 +118,18 @@ provide the component hooks. For example, a GoX component may declare
 handlers. Invoke a callback, then call `Flush()` to process its queued updates.
 `Unmount()` invalidates old setters. The counter example demonstrates this host
 adapter without depending on a browser or UI framework.
+
+Production hosts can implement `vdom.Renderer` and receive each committed tree.
+`vdom.NewRunner(renderer, model, wake)` adds a frame scheduler and event queue;
+renderer adapters enqueue `KeyboardEvent` and `MouseEvent` values with
+`Dispatch`, and enqueue application work with `Schedule(func())`. Each
+`Frame(now)` drains queued work and input, dispatches a `ClockEvent` to the model,
+and flushes state updates. The model implements `Update(vdom.Event)`.
+
+The component hooks are `useState`, `useContext`, `useRef` and `useEffect`.
+Effects run after a successful commit; an optional dependency list controls
+reruns, and returned cleanup functions run before replacement or unmount. An
+effect without dependencies runs after each successful render.
 
 Identity is parent + component definition + explicit key or sibling position.
 Keys are strings or integers and must be unique among siblings. Keyed reordering
@@ -134,7 +147,7 @@ Callbacks capture the render's state snapshot; functional updates see the latest
 queued state. Render panics return errors and leave the previous host tree intact;
 user side effects, including ref mutations, are not rolled back.
 
-Effects, live-edit state migration, DOM/GPU rendering and arbitrary compile-time
+Live-edit state migration, built-in DOM/GPU backends and arbitrary compile-time
 execution are outside this runtime. Templates and blocks run at application
 runtime, not while compiling.
 

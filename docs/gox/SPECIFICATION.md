@@ -412,8 +412,11 @@ then commit the resulting host tree. No host mutation during render. Render-phas
 state updates are rejected in v1 to prevent immediate feedback loops. A render
 panic aborts that pending commit and restores the root's rendering bookkeeping;
 the previous host tree remains committed. Runtime error delivery must be explicit.
-Mount/unmount bookkeeping releases subscriptions and callbacks; arbitrary effects,
-useEffect, cleanup hooks and asynchronous rendering are deferred.
+Mount/unmount bookkeeping releases subscriptions, callbacks and effect cleanup
+functions. `useEffect` runs after a successful commit and may return cleanup;
+asynchronous rendering remains deferred. The runner supplies queued work,
+renderer input events and a default clock event to the application model on each
+frame.
 
 Provide a headless host adapter with observable node trees and event dispatch
 for acceptance tests. Production DOM/native/GPU renderers, React compatibility,
