@@ -20,7 +20,6 @@ import (
 	"go/parser"
 	"go/scanner"
 	"go/token"
-	"path/filepath"
 	"reflect"
 	"slices"
 
@@ -54,10 +53,11 @@ const (
 // The provided ctx is used only for logging.
 func Parse(ctx context.Context, fset *token.FileSet, uri protocol.DocumentURI, src []byte, mode parser.Mode, purgeFuncBodies bool) (res *File, fixes []FixType) {
 	originalSrc := src
-	isGoX := filepath.Ext(uri.Path()) == ".gox"
-	if isGoX {
+	maskedSrc := goxlsp.MaskGoXLiterals(src)
+	hasGoXLiterals := !bytes.Equal(src, maskedSrc)
+	if hasGoXLiterals {
 		purgeFuncBodies = false
-		src = goxlsp.MaskGoXLiterals(src)
+		src = maskedSrc
 	}
 	if purgeFuncBodies {
 		src = astutil.PurgeFuncBodies(src)
@@ -131,7 +131,7 @@ func Parse(ctx context.Context, fset *token.FileSet, uri protocol.DocumentURI, s
 		}
 	}
 	assert(file != nil, "nil *ast.File")
-	if isGoX {
+	if hasGoXLiterals {
 		for _, d := range gox.SyntaxDiagnostics(uri.Path(), originalSrc) {
 			pos := token.NoPos
 			if d.Offset >= 0 && d.Offset <= tok.Size() {

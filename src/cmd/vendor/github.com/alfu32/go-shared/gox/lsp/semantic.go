@@ -134,6 +134,20 @@ func encodeSemanticTokens(src string) []int {
 	return data
 }
 
+func offsetPosition(src string, offset int) map[string]int {
+	if offset < 0 {
+		offset = 0
+	} else if offset > len(src) {
+		offset = len(src)
+	}
+	prefix := src[:offset]
+	lineStart := strings.LastIndexByte(prefix, '\n') + 1
+	return map[string]int{
+		"line":      strings.Count(prefix, "\n"),
+		"character": utf16Length(src[lineStart:offset]),
+	}
+}
+
 func (h *highlighter) add(start, end int, typ string) {
 	if start < 0 || end > len(h.src) || end <= start {
 		return
