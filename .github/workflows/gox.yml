@@ -1,9 +1,30 @@
 name: GoX
 on:
   push:
-    paths: ['gox/**', 'src/cmd/go/**', 'src/cmd/vendor/github.com/alfu32/**', '.github/workflows/gox.yml']
+    branches: ['**']
+    paths:
+      - 'gox/**'
+      - 'src/cmd/go/**'
+      - 'src/cmd/dist/**'
+      - 'src/cmd/vendor/github.com/alfu32/**'
+      - 'src/cmd/vendor/modules.txt'
+      - '.github/workflows/gox.yml'
+    tags:
+      - 'shared-toolchain-v*'
+      - 'gox-v*'
   pull_request:
-    paths: ['gox/**', 'src/cmd/go/**', 'src/cmd/vendor/github.com/alfu32/**', '.github/workflows/gox.yml']
+    paths:
+      - 'gox/**'
+      - 'src/cmd/go/**'
+      - 'src/cmd/dist/**'
+      - 'src/cmd/vendor/github.com/alfu32/**'
+      - 'src/cmd/vendor/modules.txt'
+      - '.github/workflows/gox.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   standalone:
     strategy:
@@ -22,6 +43,22 @@ jobs:
         working-directory: gox/examples/counter
       - run: python gox/tools/sync_vendor.py
       - run: git diff --exit-code -- src/cmd/vendor
+      - name: Build GoX CLI
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            go build -o dist/gox.exe ./cmd/gox
+          else
+            go build -o dist/gox ./cmd/gox
+          fi
+        working-directory: gox
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gox-${{ runner.os }}
+          path: gox/dist/*
+          if-no-files-found: error
+
   native-linux:
     runs-on: ubuntu-latest
     steps:
@@ -38,3 +75,26 @@ jobs:
       - run: sh src/cmd/sharedlauncher/test-linux.sh
       - run: ../../../bin/go run .
         working-directory: gox/examples/counter
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [standalone]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: gox-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish GoX CLI release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-assets/* --repo "$REPOSITORY" --clobber
+          else
+            gh release create "$TAG" release-assets/* --repo "$REPOSITORY" --verify-tag --generate-notes --title "GoX $TAG"
+          fi
