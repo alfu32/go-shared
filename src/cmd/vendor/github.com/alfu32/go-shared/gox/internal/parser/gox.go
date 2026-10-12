@@ -160,16 +160,14 @@ func (p *parser) parseFormat() ast.Expr {
 	defer p.enterExtension()()
 	quote := rune(p.lit[0])
 	start := p.pos
-	name := p.fresh("text")
-	body := []ast.Stmt{variable(name, ident("string"), nil)}
 	holes := 0
 	literal := ""
+	var format strings.Builder
+	var args []ast.Expr
 	for {
 		part, boundary := p.scanner.FormatPart(quote)
 		literal += part
-		if part != "" {
-			body = append(body, &ast.AssignStmt{Lhs: []ast.Expr{ident(name)}, Tok: token.ADD_ASSIGN, Rhs: []ast.Expr{str(part)}})
-		}
+		format.WriteString(strings.ReplaceAll(part, "%", "%%"))
 		if boundary != '{' {
 			break
 		}
@@ -180,21 +178,27 @@ func (p *parser) parseFormat() ast.Expr {
 		if p.tok == token.SEMICOLON {
 			p.next()
 		}
+		verb := "%v"
+		if p.tok == token.COLON && p.scanner.HasFormatSpec() {
+			if spec := p.scanner.FormatSpec(); spec != "" {
+				verb = spec
+			}
+			p.next() // scan the closing brace after the raw format text
+		}
 		if p.tok != token.RBRACE {
 			p.errorExpected(p.pos, "} ending interpolation")
 			break
 		}
-		slot := p.fresh("value")
-		body = append(body, variable(slot, ident("any"), x))
-		body = append(body, &ast.AssignStmt{Lhs: []ast.Expr{ident(name)}, Tok: token.ADD_ASSIGN, Rhs: []ast.Expr{call(ident(p.formatter()), ident(slot))}})
+		format.WriteString(verb)
+		args = append(args, x)
 	}
 	p.scanner.Semi(true)
 	p.next()
 	if holes == 0 {
 		return &ast.BasicLit{ValuePos: start, Kind: token.STRING, Value: strconv.Quote(literal)}
 	}
-	body = append(body, ret(ident(name)))
-	return call(function(ident("string"), body...))
+	callArgs := append([]ast.Expr{str(format.String())}, args...)
+	return call(sel(ident(p.dep("fmt")), "Sprintf"), callArgs...)
 }
 func (p *parser) parseDo() ast.Expr {
 	defer p.enterExtension()()
@@ -588,19 +592,6 @@ type componentDef struct {
 type componentBody struct {
 	body     *ast.BlockStmt
 	instance string
-}
-
-func (p *parser) formatter() string {
-	if p.formatterName != "" {
-		return p.formatterName
-	}
-	name := p.fresh("format")
-	p.formatterName = name
-	v := p.fresh("operand")
-	fn := function(ident("string"), ret(call(sel(ident(p.dep("fmt")), "Sprint"), ident(v))))
-	fn.Type.Params.List = []*ast.Field{gxField(v, ident("any"))}
-	p.extraDecls = append(p.extraDecls, &ast.FuncDecl{Name: ident(name), Type: fn.Type, Body: fn.Body})
-	return name
 }
 
 func uniqueAST(v reflect.Value, seen map[uintptr]bool) {

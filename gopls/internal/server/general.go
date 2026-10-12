@@ -187,7 +187,7 @@ func (s *server) Initialize(ctx context.Context, params *protocol.ParamInitializ
 			},
 		},
 		ServerInfo: &protocol.ServerInfo{
-			Name:    "gopls",
+			Name:    "goxpls",
 			Version: string(goplsVersion),
 		},
 	}, nil

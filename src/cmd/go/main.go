@@ -29,6 +29,7 @@ import (
 	"cmd/go/internal/goxcmd"
 	"cmd/go/internal/help"
 	"cmd/go/internal/list"
+	"cmd/go/internal/lspcmd"
 	"cmd/go/internal/modcmd"
 	"cmd/go/internal/modfetch"
 	"cmd/go/internal/modget"
@@ -63,6 +64,7 @@ func init() {
 		modget.CmdGet,
 		work.CmdInstall,
 		list.CmdList,
+		lspcmd.Cmd,
 		modcmd.CmdMod,
 		run.CmdRun,
 		telemetrycmd.CmdTelemetry,

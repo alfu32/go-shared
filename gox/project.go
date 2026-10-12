@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	xscan "github.com/alfu32/go-shared/gox/internal/scanner"
 	"go/build"
 	"go/parser"
 	"go/token"
@@ -17,6 +18,24 @@ import (
 )
 
 const Version = "0.1.0-dev.2"
+
+// ContainsGoX reports whether src contains an F or X string literal. It uses
+// the GoX lexer so comments and ordinary strings do not trigger translation.
+func ContainsGoX(path string, src []byte) bool {
+	fset := token.NewFileSet()
+	file := fset.AddFile(path, -1, len(src))
+	var s xscan.Scanner
+	s.Init(file, src, nil, xscan.GoX)
+	for {
+		_, tok, _ := s.Scan()
+		if tok == xscan.FormatStart || tok == xscan.MarkupStart {
+			return true
+		}
+		if tok == token.EOF {
+			return false
+		}
+	}
+}
 
 type ProjectOptions struct {
 	Options

@@ -71,10 +71,16 @@ compatible with this distribution.
 
 ### Releases
 
-The GoX workflow builds the GoX CLI and GoX-aware gopls for Linux and Windows.
+The GoX workflow builds the GoX CLI and GoX-aware `goxpls` for Linux and Windows.
 Run it manually from the Actions tab; provide an existing release tag to publish
 both tools to that GitHub Release. Builds without a release tag validate the
 tools and upload CI artifacts only.
+
+The Go command provides `go gox emit file.gox` for explicit source translation
+and `go lsp [gopls arguments]` as the language-server entry point. `go lsp`
+starts the sibling `bin/goxpls` executable (or `goxpls` from `PATH`) and forwards
+its arguments and standard streams. Build the server with
+`cd gopls && go build -o ../bin/goxpls .` to use it from this checkout.
 
 The reusable native launcher and Linux smoke test, plus Python and Windows
 batch launchers and tests, are in `src/cmd/sharedlauncher/`.

@@ -52,8 +52,11 @@ other := <label>{message}</label>
 
 * `F` is uppercase and adjacent to the quote or backtick. Holes contain Go
   expressions, including nested GoX expressions. `{{` and `}}` produce braces.
-  Each hole is evaluated once and immediately formatted with `fmt.Sprint` before
-  the next hole is evaluated. A literal without holes remains a Go constant.
+  An interpolated string lowers to one `fmt.Sprintf` call. Holes use `%v` by
+  default; `{expression:%verb}` supplies a Go format verb. Literal percent
+  signs are escaped in the generated format string. Hole expressions are
+  evaluated once each, in source order, before formatting. A literal without
+  holes remains a Go constant.
 * Named local functions retain lexical captures and self recursion. They become
   visible at their declaration, without forward declarations or implicit mutual
   recursion. Go's normal loop capture semantics apply.
@@ -179,13 +182,15 @@ that eager whole-module transformation.
 Cache entries include source bytes, transformation options, logical module/file
 identity and a hash of the transformer executable. Writes are atomic. Diagnostic
 `//line` directives point back to GoX. The API exposes line-level source mappings;
-generated helper locations are approximate. The workspace includes a gopls
-fork in `../gopls` with GoX file parsing and semantic highlighting for `F`
-interpolations and `X` markup. Build it from this repository with
-`cd gopls && go build -o ../goxpls .`; configure your editor to use that binary
-for `.gox` documents (Language ID `gox`). The original standalone prototype
-can still be built with `go build ./cmd/goxpls`, but the gopls fork is the
-full-featured language server.
+generated helper locations are approximate. The workspace includes the GoX
+language server in `../gopls`, built as `goxpls`, with GoX file parsing and
+semantic highlighting for `F` interpolations and `X` markup. Build it from the
+repository root with `cd gopls && go build -o ../bin/goxpls .`; configure your
+editor to use that binary for `.gox` documents (Language ID `gox`). The Go
+command exposes the same server as `go lsp`, forwarding all gopls arguments.
+The original standalone prototype can still be built with
+`go build ./cmd/goxpls`, but the GoX-aware gopls fork is the full-featured
+language server.
 
 `TransformFile` operates on bytes. `TransformPackage` accepts selected files,
 a context for cancellation, and returns outputs and imports. File selection and

@@ -44,7 +44,6 @@ type parser struct {
 	componentBodies []componentBody
 	componentDefs   []componentDef
 	markupUses      []*markup
-	formatterName   string
 	instance        string
 	hooks           int
 	extensionDepth  int

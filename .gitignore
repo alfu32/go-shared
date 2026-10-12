@@ -74,3 +74,4 @@ native/pkg/tool/linux_amd64/link-native
 native/pkg/tool/linux_amd64/preprofile-native
 native/pkg/tool/linux_amd64/vet-native
 gox/dist/gox
+*.tar.gz

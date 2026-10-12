@@ -28,7 +28,9 @@ building and running GoX programs.
 A component declares typed, required properties and returns one VDOM node.
 Lowercase markup tags create host elements; capitalized tags refer to
 components. Markup children can include text, nodes, node slices, and `nil`.
-Use an `F` string to interpolate Go values into text.
+Use an `F` string to interpolate Go values into text. The whole string lowers
+to one `fmt.Sprintf` call. A basic hole uses `%v`; add a colon and Go format
+verb to override it:
 
 ```go
 var Theme = view.NewContext("light")
@@ -39,7 +41,7 @@ component Counter(title string) {
 
     return X`<button theme={theme} onClick={func() {
         setCount.Update(func(latest int) int { return latest + 1 })
-    }}>{F"{title}: {count}"}</button>`
+    }}>{F"{title}: {count:%d}"}</button>`
 }
 ```
 

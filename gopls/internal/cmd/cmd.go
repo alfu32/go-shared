@@ -104,7 +104,7 @@ func New() *Application {
 }
 
 // Name implements tool.Application returning the binary name.
-func (app *Application) Name() string { return "gopls" }
+func (app *Application) Name() string { return "goxpls" }
 
 // Usage implements tool.Application returning empty extra argument usage.
 func (app *Application) Usage() string { return "" }
@@ -121,18 +121,18 @@ func (app *Application) DetailedHelp(f *flag.FlagSet) {
 	defer w.Flush()
 
 	fmt.Fprint(w, `
-gopls is a Go language server.
+goxpls is the Go and GoX language server.
 
 It is typically used with an editor to provide language features. When no
-command is specified, gopls will default to the 'serve' command. The language
-features can also be accessed via the gopls command-line interface.
+command is specified, goxpls will default to the 'serve' command. The language
+features can also be accessed via the goxpls command-line interface.
 
 For documentation of all its features, see:
 
    https://github.com/golang/tools/blob/master/gopls/doc/features
 
 Usage:
-  gopls help [<subject>]
+  goxpls help [<subject>]
 
 Command:
 `)

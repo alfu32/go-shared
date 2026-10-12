@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -84,6 +85,42 @@ func (s *Scanner) FormatPart(quote rune) (string, rune) {
 	s.error(s.offset, "unterminated F literal")
 	return decodePart(b.String(), quote, s), 0
 }
+
+// FormatSpec returns the raw format text up to (but not including) the
+// interpolation's closing brace. The caller scans that brace as a Go token.
+func (s *Scanner) FormatSpec() string {
+	var b strings.Builder
+	for unicode.IsSpace(s.ch) {
+		s.next()
+	}
+	for s.ch >= 0 && s.ch != '}' {
+		b.WriteRune(s.ch)
+		s.next()
+	}
+	if s.ch < 0 {
+		s.error(s.offset, "unterminated format specifier in F literal")
+	}
+	return b.String()
+}
+
+// HasFormatSpec reports whether the scanner is positioned immediately after
+// an interpolation colon followed by optional whitespace and a percent verb.
+// Colons in Go-like syntax are therefore left to the expression parser.
+func (s *Scanner) HasFormatSpec() bool {
+	offset := s.offset
+	if unicode.IsSpace(s.ch) {
+		for offset < len(s.src) {
+			r, size := utf8.DecodeRune(s.src[offset:])
+			if !unicode.IsSpace(r) {
+				return r == '%'
+			}
+			offset += size
+		}
+		return false
+	}
+	return s.ch == '%'
+}
+
 func decodePart(v string, q rune, s *Scanner) string {
 	if q == '`' {
 		return strings.ReplaceAll(v, "\r", "")

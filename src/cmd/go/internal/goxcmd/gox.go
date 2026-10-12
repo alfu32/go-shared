@@ -33,7 +33,11 @@ func run(ctx context.Context, cmd *base.Command, args []string) {
 	}
 	os.Stdout.Write(r.Source)
 }
-func init() { fsys.SourceExpander = expand; base.AddChdirFlag(&CmdGoX.Flag) }
+func init() {
+	fsys.SourceExpander = expand
+	fsys.IsGoXSource = gox.ContainsGoX
+	base.AddChdirFlag(&CmdGoX.Flag)
+}
 
 type renamed struct {
 	fs.DirEntry
@@ -48,9 +52,18 @@ func expand(dir string, entries []fs.DirEntry) ([]fs.DirEntry, error) {
 	excludeTests := cfg.CmdName == "build" || cfg.CmdName == "run" || cfg.CmdName == "install"
 	hasGoX := false
 	for _, d := range entries {
-		if !d.IsDir() && strings.HasSuffix(d.Name(), ".gox") {
+		if d.IsDir() {
+			continue
+		}
+		if strings.HasSuffix(d.Name(), ".gox") {
 			hasGoX = true
 			break
+		}
+		if strings.HasSuffix(d.Name(), ".go") {
+			if src, err := fsys.ReadFile(filepath.Join(dir, d.Name())); err == nil && gox.ContainsGoX(d.Name(), src) {
+				hasGoX = true
+				break
+			}
 		}
 	}
 	if !hasGoX {
@@ -87,7 +100,9 @@ func expand(dir string, entries []fs.DirEntry) ([]fs.DirEntry, error) {
 	}
 	out := append([]fs.DirEntry(nil), entries...)
 	for _, d := range entries {
-		if d.IsDir() || !strings.HasSuffix(d.Name(), ".gox") || excludeTests && strings.HasSuffix(d.Name(), "_test.gox") {
+		isGoX := strings.HasSuffix(d.Name(), ".gox")
+		isGo := strings.HasSuffix(d.Name(), ".go")
+		if d.IsDir() || (!isGoX && !isGo) || excludeTests && (strings.HasSuffix(d.Name(), "_test.gox") || strings.HasSuffix(d.Name(), "_test.go")) {
 			continue
 		}
 		source := filepath.Join(dir, d.Name())
@@ -102,9 +117,15 @@ func expand(dir string, entries []fs.DirEntry) ([]fs.DirEntry, error) {
 		if !selected {
 			continue
 		}
-		name := gox.GeneratedName(d.Name())
-		if names[name] {
-			return nil, fmt.Errorf("GoX output conflicts with existing file: %s", filepath.Join(dir, name))
+		if isGo && !gox.ContainsGoX(d.Name(), src) {
+			continue
+		}
+		name := d.Name()
+		if isGoX {
+			name = gox.GeneratedName(d.Name())
+			if names[name] {
+				return nil, fmt.Errorf("GoX output conflicts with existing file: %s", filepath.Join(dir, name))
+			}
 		}
 		header, e := parser.ParseFile(token.NewFileSet(), source, src, parser.PackageClauseOnly)
 		if e != nil {
@@ -119,8 +140,11 @@ func expand(dir string, entries []fs.DirEntry) ([]fs.DirEntry, error) {
 		if e != nil {
 			return nil, e
 		}
-		fsys.RegisterGenerated(filepath.Join(dir, name), path)
-		out = append(out, renamed{fs.FileInfoToDirEntry(info), name})
+		virtual := filepath.Join(dir, name)
+		fsys.RegisterGenerated(virtual, path, source)
+		if isGoX {
+			out = append(out, renamed{fs.FileInfoToDirEntry(info), name})
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name() < out[j].Name() })
 	return out, nil
@@ -156,14 +180,16 @@ func PrepareArgs(command string, args []string) ([]string, error) {
 		if command == "run" && !strings.HasSuffix(a, ".go") && !strings.HasSuffix(a, ".gox") {
 			break
 		}
-		if strings.HasSuffix(a, ".gox") {
+		if strings.HasSuffix(a, ".gox") || strings.HasSuffix(a, ".go") {
 			if e := fsys.Init(); e != nil {
 				return nil, e
 			}
 			if _, e := fsys.ReadDir(filepath.Dir(a)); e != nil {
 				return nil, e
 			}
-			out[j] = gox.GeneratedName(a)
+			if strings.HasSuffix(a, ".gox") {
+				out[j] = gox.GeneratedName(a)
+			}
 		}
 	}
 	return out, nil

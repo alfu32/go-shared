@@ -55,6 +55,7 @@ var bootstrapDirs = []string{
 	"cmd/go/internal/fsys",
 	"cmd/go/internal/generate",
 	"cmd/go/internal/goxcmd",
+	"cmd/go/internal/lspcmd",
 	"cmd/go/internal/gover",
 	"cmd/go/internal/help",
 	"cmd/go/internal/imports",
