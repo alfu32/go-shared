@@ -34,6 +34,10 @@ type File struct {
 	// actual content of the file if we have fixed the AST.
 	Src []byte
 
+	// HasGoXLiterals reports that the AST was parsed from a masked source copy.
+	// Such an AST must not be used to format or rewrite the original source.
+	HasGoXLiterals bool
+
 	Cursor inspector.Cursor // cursor of *ast.File, sans sibling files
 
 	// fixedSrc and fixedAST report on "fixing" that occurred during parsing of

@@ -23,12 +23,15 @@ var semanticTokenIndex = func() map[string]int {
 type semanticToken struct {
 	start, end int
 	typ        int
+	scope      int
 }
 
 type highlighter struct {
 	src        string
 	tokens     []semanticToken
 	extensions []extensionSpan
+	scopes     []GoXExpressionScope
+	current    int
 }
 
 type extensionSpan struct {
@@ -40,19 +43,28 @@ type extensionSpan struct {
 type HighlightToken struct {
 	Start, End int
 	Kind       string
+	Scope      int // -1 outside an interpolation; otherwise an expression scope ID.
+}
+
+// GoXExpressionScope describes an embedded Go expression between interpolation
+// braces. Parent is -1 for a top-level interpolation, or the enclosing
+// expression scope when this interpolation is nested in an F/X expression.
+type GoXExpressionScope struct {
+	Start, End int
+	Parent     int
 }
 
 // GoXHighlightTokens returns tokens inside F and X expressions, including
 // their embedded Go expressions. Ordinary Go tokens are left to gopls.
 func GoXHighlightTokens(src []byte) []HighlightToken {
-	h := &highlighter{src: string(src)}
+	h := &highlighter{src: string(src), current: -1}
 	h.scanCode(0, len(src))
 	var result []HighlightToken
 	for _, t := range h.tokens {
 		for _, ext := range h.extensions {
 			if t.start >= ext.start && t.end <= ext.end {
 				kind := semanticTokenTypes[t.typ]
-				result = append(result, HighlightToken{Start: t.start, End: t.end, Kind: kind})
+				result = append(result, HighlightToken{Start: t.start, End: t.end, Kind: kind, Scope: t.scope})
 				break
 			}
 		}
@@ -61,9 +73,17 @@ func GoXHighlightTokens(src []byte) []HighlightToken {
 	return result
 }
 
+// GoXExpressionScopes returns embedded Go expression scopes in source order.
+// Nested F/X interpolations have their containing expression as Parent.
+func GoXExpressionScopes(src []byte) []GoXExpressionScope {
+	h := &highlighter{src: string(src), current: -1}
+	h.scanCode(0, len(src))
+	return append([]GoXExpressionScope(nil), h.scopes...)
+}
+
 // GoXLiteralRanges returns byte ranges for F and X expressions.
 func GoXLiteralRanges(src []byte) [][3]int {
-	h := &highlighter{src: string(src)}
+	h := &highlighter{src: string(src), current: -1}
 	h.scanCode(0, len(src))
 	ranges := make([][3]int, 0, len(h.extensions))
 	for _, ext := range h.extensions {
@@ -174,7 +194,19 @@ func (h *highlighter) add(start, end int, typ string) {
 	if start < 0 || end > len(h.src) || end <= start {
 		return
 	}
-	h.tokens = append(h.tokens, semanticToken{start, end, semanticTokenIndex[typ]})
+	h.tokens = append(h.tokens, semanticToken{start: start, end: end, typ: semanticTokenIndex[typ], scope: h.current})
+}
+
+// scanGoExpression enters a child lexical scope and scans its contents using
+// the Go-code scanner. Nested F/X literals found there recursively create
+// further expression scopes.
+func (h *highlighter) scanGoExpression(start, end int) {
+	parent := h.current
+	scope := len(h.scopes)
+	h.scopes = append(h.scopes, GoXExpressionScope{Start: start, End: end, Parent: parent})
+	h.current = scope
+	h.scanCode(start, end)
+	h.current = parent
 }
 
 func (h *highlighter) scanCode(start, end int) {
@@ -279,7 +311,7 @@ func (h *highlighter) scanFormat(start, limit int) int {
 					h.add(i+1, limit, "variable")
 					return limit
 				}
-				h.scanCode(i+1, close)
+				h.scanGoExpression(i+1, close)
 				h.add(close, close+1, "operator")
 				i, textStart = close+1, close+1
 				continue
@@ -306,7 +338,7 @@ func (h *highlighter) scanMarkup(start, limit int) int {
 			if close < 0 {
 				return limit
 			}
-			h.scanCode(i+1, close)
+			h.scanGoExpression(i+1, close)
 			h.add(close, close+1, "operator")
 			i = close + 1
 			continue
@@ -374,7 +406,7 @@ func (h *highlighter) scanMarkup(start, limit int) int {
 				if close < 0 {
 					return limit
 				}
-				h.scanCode(i+1, close)
+				h.scanGoExpression(i+1, close)
 				h.add(close, close+1, "operator")
 				i = close + 1
 				continue

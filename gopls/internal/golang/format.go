@@ -39,6 +39,13 @@ func Format(ctx context.Context, snapshot *cache.Snapshot, fh file.Handle) ([]pr
 	if err != nil {
 		return nil, err
 	}
+	if pgf.HasGoXLiterals {
+		// ParseGo uses placeholders for GoX literals. Formatting that AST would
+		// turn those placeholders into edits to the original source (for example,
+		// replacing X"..." with nil), so leave GoX files untouched until an
+		// extension-aware formatter is available.
+		return nil, nil
+	}
 
 	// Even if this file has parse errors, it might still be possible to format it.
 	// Using format.Node on an AST with errors may result in code being modified.

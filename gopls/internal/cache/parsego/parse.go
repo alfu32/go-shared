@@ -148,16 +148,17 @@ func Parse(ctx context.Context, fset *token.FileSet, uri protocol.DocumentURI, s
 	_ = curFile.Node().(*ast.File)
 
 	return &File{
-		URI:      uri,
-		Mode:     mode,
-		Src:      src,
-		fixedSrc: fixedSrc,
-		fixedAST: fixedAST,
-		File:     file,
-		Tok:      tok,
-		Cursor:   curFile,
-		Mapper:   protocol.NewMapper(uri, src),
-		ParseErr: parseErr,
+		URI:            uri,
+		Mode:           mode,
+		Src:            src,
+		HasGoXLiterals: hasGoXLiterals,
+		fixedSrc:       fixedSrc,
+		fixedAST:       fixedAST,
+		File:           file,
+		Tok:            tok,
+		Cursor:         curFile,
+		Mapper:         protocol.NewMapper(uri, src),
+		ParseErr:       parseErr,
 	}, fixes
 }
 
