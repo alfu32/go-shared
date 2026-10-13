@@ -21,6 +21,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	goxlsp "github.com/alfu32/go-shared/gox/lsp"
 	"golang.org/x/mod/module"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/go/ast/astutil"
@@ -2035,6 +2036,19 @@ func typeErrorsToDiagnostics(pkg *syntaxPackage, inputs *typeCheckInputs, errs [
 						bug.Reportf("internal error: could not locate file for primary type checker error %v: %v", e, err)
 					}
 				}
+				continue
+			}
+
+			// X and F literals are parsed by GoX but replaced with placeholders
+			// for Go's parser and type checker. Ignore errors caused by those
+			// placeholders, and account for identifiers referenced in embedded
+			// expressions when Go reports them as unused.
+			offset := e.Fset.File(start).Offset(start)
+			if goxlsp.GoXLiteralContainsOffset(pgf.Src, offset) {
+				continue
+			}
+			if name, ok := strings.CutPrefix(e.Msg, "declared and not used: "); ok &&
+				goxlsp.GoXHasExpressionIdentifier(pgf.Src, name) {
 				continue
 			}
 

@@ -73,6 +73,28 @@ func GoXLiteralRanges(src []byte) [][3]int {
 	return ranges
 }
 
+// GoXLiteralContainsOffset reports whether offset is inside an F or X literal.
+func GoXLiteralContainsOffset(src []byte, offset int) bool {
+	for _, r := range GoXLiteralRanges(src) {
+		if offset >= r[0] && offset < r[1] {
+			return true
+		}
+	}
+	return false
+}
+
+// GoXHasExpressionIdentifier reports whether name occurs as an identifier in
+// an embedded Go expression in an F or X literal.
+func GoXHasExpressionIdentifier(src []byte, name string) bool {
+	s := string(src)
+	for _, t := range GoXHighlightTokens(src) {
+		if t.Kind == "variable" && t.End-t.Start == len(name) && s[t.Start:t.End] == name {
+			return true
+		}
+	}
+	return false
+}
+
 // MaskGoXLiterals replaces each GoX expression with a same-length Go
 // expression, preserving line breaks and all source offsets for gopls.
 func MaskGoXLiterals(src []byte) []byte {
@@ -405,6 +427,27 @@ func findHoleEnd(src string, start, limit int) int {
 	depth := 1
 	for i := start; i < limit; {
 		c := src[i]
+		// Interpolations contain Go expressions, so an expression may itself
+		// contain an F or X literal. Skip that complete literal here; treating
+		// its quotes as ordinary Go quotes (especially for X markup) can make
+		// a brace inside the nested literal look like the end of this hole.
+		if (c == 'F' || c == 'X') && (i == start || !isIdentContinue(src[i-1])) && i+1 < limit {
+			h := highlighter{src: src}
+			if c == 'F' && (src[i+1] == '"' || src[i+1] == '`') {
+				j := h.scanFormat(i, limit)
+				if j > i {
+					i = j
+					continue
+				}
+			}
+			if c == 'X' && src[i+1] == '"' {
+				j := h.scanMarkup(i, limit)
+				if j > i {
+					i = j
+					continue
+				}
+			}
+		}
 		if c == '"' || c == '\'' || c == '`' {
 			i++
 			for i < limit {
