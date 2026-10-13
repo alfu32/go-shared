@@ -27,6 +27,7 @@ import (
 
 	"cmd/internal/sharedentry"
 	"cmd/internal/telemetry/counter"
+	"github.com/alfu32/go-shared/gox"
 
 	"golang.org/x/sync/semaphore"
 )
@@ -240,6 +241,10 @@ func processFile(filename string, info fs.FileInfo, in io.Reader, r *reporter) e
 	src, err := readFile(filename, info, in)
 	if err != nil {
 		return err
+	}
+	if gox.ContainsGoX(filename, src) {
+		r.Warnf("gofmt: skipping GoX source %s; use a GoX-aware formatter\n", filename)
+		return nil
 	}
 
 	fileSet := token.NewFileSet()
