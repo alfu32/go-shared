@@ -7,6 +7,7 @@ package server
 import (
 	"context"
 
+	goxlsp "github.com/alfu32/go-shared/gox/lsp"
 	"golang.org/x/tools/gopls/internal/file"
 	"golang.org/x/tools/gopls/internal/golang"
 	"golang.org/x/tools/gopls/internal/label"
@@ -33,11 +34,23 @@ func (s *server) semanticTokens(ctx context.Context, td protocol.TextDocumentIde
 	}
 	defer release()
 
-	if snapshot.Options().SemanticTokens {
-		switch snapshot.FileKind(fh) {
-		case file.Tmpl:
+	switch snapshot.FileKind(fh) {
+	case file.Tmpl:
+		if snapshot.Options().SemanticTokens {
 			return template.SemanticTokens(ctx, snapshot, fh.URI())
-		case file.Go:
+		}
+	case file.Go:
+		semanticTokens := snapshot.Options().SemanticTokens
+		if !semanticTokens {
+			if content, err := fh.Content(); err == nil {
+				// Go's lexical highlighter sees the contents of F/X literals as a
+				// string. Send semantic tokens for GoX files even when the optional
+				// whole-Go semantic highlighting setting is disabled, so expressions
+				// inside interpolation braces receive normal Go token colors.
+				semanticTokens = len(goxlsp.GoXLiteralRanges(content)) > 0
+			}
+		}
+		if semanticTokens {
 			return golang.SemanticTokens(ctx, snapshot, fh, rng)
 		}
 	}

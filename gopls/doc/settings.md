@@ -211,7 +211,9 @@ Default: `{"generate":true,"regenerate_cgo":true,"run_govulncheck":false,"tidy":
 **This setting is experimental and may be deleted.**
 
 semanticTokens controls whether the LSP server will send
-semantic tokens to the client.
+semantic tokens to the client. GoX files containing `F` or `X` literals receive
+semantic tokens regardless of this setting so Go expressions inside
+interpolations can be highlighted as code.
 
 Default: `false`.
 

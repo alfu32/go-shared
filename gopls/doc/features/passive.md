@@ -259,9 +259,11 @@ constructor of each symbols's type:
 
 Settings:
 - The [`semanticTokens`](../settings.md#semanticTokens) setting determines whether
-  gopls responds to semantic token requests. This option allows users to disable
-  semantic tokens even when their client provides no client-side control over the
-  feature. Because gopls' semantic-tokens algorithm depends on type checking,
+  gopls responds to semantic token requests for ordinary Go files. GoX files
+  containing `F` or `X` literals receive semantic tokens so embedded Go
+  expressions can be highlighted as code. This option allows users to disable
+  semantic tokens for ordinary Go files even when their client provides no
+  client-side control over the feature. Because gopls' semantic-tokens algorithm depends on type checking,
   which adds a tangible latency, this feature is currently disabled by default
   to avoid any delay in syntax highlighting; see https://go.dev/issue/#45313, https://go.dev/issue/#47465.
 - The experimental [`noSemanticString`](../settings.md#noSemanticString) and
