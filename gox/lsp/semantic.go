@@ -311,7 +311,13 @@ func (h *highlighter) scanFormat(start, limit int) int {
 					h.add(i+1, limit, "variable")
 					return limit
 				}
-				h.scanGoExpression(i+1, close)
+				exprEnd := findFormatSpec(h.src, i+1, close)
+				if exprEnd < 0 {
+					exprEnd = close
+				} else {
+					h.add(exprEnd, close, "string")
+				}
+				h.scanGoExpression(i+1, exprEnd)
 				h.add(close, close+1, "operator")
 				i, textStart = close+1, close+1
 				continue
@@ -518,6 +524,73 @@ func findHoleEnd(src string, start, limit int) int {
 			depth--
 			if depth == 0 {
 				return i
+			}
+		}
+		i++
+	}
+	return -1
+}
+
+// findFormatSpec finds the F-string format separator at the top level of an
+// interpolation. Colons inside nested expressions, strings, comments, or
+// nested F/X literals belong to Go syntax and are ignored.
+func findFormatSpec(src string, start, end int) int {
+	paren, bracket, brace := 0, 0, 0
+	for i := start; i < end; {
+		c := src[i]
+		if (c == 'F' || c == 'X') && (i == start || !isIdentContinue(src[i-1])) && i+1 < end {
+			h := highlighter{src: src}
+			if c == 'F' && (src[i+1] == '"' || src[i+1] == '`') {
+				i = h.scanFormat(i, end)
+				continue
+			}
+			if c == 'X' && (src[i+1] == '"' || src[i+1] == '`') {
+				i = h.scanMarkup(i, end)
+				continue
+			}
+		}
+		if c == '"' || c == '\'' || c == '`' {
+			h := highlighter{src: src}
+			i = h.scanQuoted(i, end, c)
+			continue
+		}
+		if c == '/' && i+1 < end && src[i+1] == '/' {
+			i += 2
+			for i < end && src[i] != '\n' {
+				i++
+			}
+			continue
+		}
+		if c == '/' && i+1 < end && src[i+1] == '*' {
+			j := strings.Index(src[i+2:end], "*/")
+			if j < 0 {
+				return -1
+			}
+			i += j + 4
+			continue
+		}
+		switch c {
+		case '(':
+			paren++
+		case ')':
+			paren--
+		case '[':
+			bracket++
+		case ']':
+			bracket--
+		case '{':
+			brace++
+		case '}':
+			brace--
+		case ':':
+			if paren == 0 && bracket == 0 && brace == 0 {
+				j := i + 1
+				for j < end && isSpace(src[j]) {
+					j++
+				}
+				if j < end && src[j] == '%' {
+					return i
+				}
 			}
 		}
 		i++

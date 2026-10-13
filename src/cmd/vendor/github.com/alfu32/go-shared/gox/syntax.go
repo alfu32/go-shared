@@ -1,6 +1,8 @@
 package gox
 
 import (
+	"go/ast"
+	stdparser "go/parser"
 	"go/token"
 	"path/filepath"
 
@@ -11,6 +13,15 @@ import (
 type SyntaxDiagnostic struct {
 	Offset  int
 	Message string
+}
+
+// ParseGoXFile parses Go source with GoX extensions lowered into their Go AST
+// representation. The standard parser mode flags control comments, errors,
+// and object resolution; GoX and bare JSX parsing are always enabled.
+func ParseGoXFile(fset *token.FileSet, filename string, src []byte, mode stdparser.Mode) (*ast.File, error) {
+	return parser.ParseFileWithBindings(fset, filename, src,
+		parser.GoX|parser.BareJSX|parser.Mode(mode), filepath.ToSlash(filename),
+		[]string{"useState", "useRef", "useContext", "useEffect"})
 }
 
 // SyntaxDiagnostics parses GoX without lowering it into generated Go source.

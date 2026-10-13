@@ -65,11 +65,22 @@ func Parse(ctx context.Context, fset *token.FileSet, uri protocol.DocumentURI, s
 	ctx, done := event.Start(ctx, "cache.ParseGoSrc", label.File.Of(uri.Path()))
 	defer done()
 
-	file, err := parser.ParseFile(fset, uri.Path(), src, mode)
+	var file *ast.File
+	var err error
+	if hasGoXLiterals && mode&parser.ImportsOnly == 0 {
+		// Keep the real Go expressions in F/X holes in the AST. The GoX parser
+		// lowers the surrounding literals while retaining source positions for
+		// those expressions, enabling normal gopls type information and queries.
+		file, err = gox.ParseGoXFile(fset, uri.Path(), originalSrc, mode)
+	} else {
+		file, err = parser.ParseFile(fset, uri.Path(), src, mode)
+	}
 	var parseErr scanner.ErrorList
 	if err != nil {
-		// We passed a byte slice, so the only possible error is a parse error.
-		parseErr = err.(scanner.ErrorList)
+		if !hasGoXLiterals {
+			// We passed a byte slice, so the only possible error is a parse error.
+			parseErr = err.(scanner.ErrorList)
+		}
 	}
 	// Inv: file != nil.
 

@@ -83,6 +83,7 @@ func SemanticTokens(ctx context.Context, snapshot *cache.Snapshot, fh file.Handl
 		start:          start,
 		end:            end,
 		goXRanges:      goxlsp.GoXLiteralRanges([]byte(pgf.Src)),
+		goXScopes:      goxlsp.GoXExpressionScopes([]byte(pgf.Src)),
 	}
 	tv.visit()
 	tv.visitGoXTokens()
@@ -106,6 +107,7 @@ type tokenVisitor struct {
 	pgf            *parsego.File
 	start, end     token.Pos // range of interest
 	goXRanges      [][3]int
+	goXScopes      []goxlsp.GoXExpressionScope
 
 	// working state
 	stack  []ast.Node     // path from root of the syntax tree
@@ -260,7 +262,16 @@ func (tv *tokenVisitor) token(start token.Pos, length int, typ semtok.Type, modi
 	endOffset := startOffset + length
 	for _, r := range tv.goXRanges {
 		if startOffset < r[1] && endOffset > r[0] {
-			return
+			inExpression := false
+			for _, scope := range tv.goXScopes {
+				if startOffset >= scope.Start && endOffset <= scope.End {
+					inExpression = true
+					break
+				}
+			}
+			if !inExpression {
+				return
+			}
 		}
 	}
 	if start >= tv.end || end <= tv.start {
@@ -287,6 +298,22 @@ func (tv *tokenVisitor) token(start token.Pos, length int, typ semtok.Type, modi
 
 func (tv *tokenVisitor) visitGoXTokens() {
 	for _, t := range goxlsp.GoXHighlightTokens([]byte(tv.pgf.Src)) {
+		// GoX expressions now have ordinary Go AST nodes and receive semantic
+		// tokens from visit(). Retain custom tokens for markup and nested F/X
+		// literal text, but don't overlay the expression with lexical guesses.
+		if t.Scope >= 0 {
+			scope := tv.goXScopes[t.Scope]
+			insideNestedLiteral := false
+			for _, r := range tv.goXRanges {
+				if r[0] >= scope.Start && r[1] <= scope.End && t.Start >= r[0] && t.End <= r[1] {
+					insideNestedLiteral = true
+					break
+				}
+			}
+			if !insideNestedLiteral {
+				continue
+			}
+		}
 		startPos := tv.pgf.Tok.Pos(t.Start)
 		endPos := tv.pgf.Tok.Pos(t.End)
 		if startPos >= tv.end || endPos <= tv.start {
