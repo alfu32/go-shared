@@ -23,12 +23,15 @@ var semanticTokenIndex = func() map[string]int {
 type semanticToken struct {
 	start, end int
 	typ        int
+	scope      int
 }
 
 type highlighter struct {
 	src        string
 	tokens     []semanticToken
 	extensions []extensionSpan
+	scopes     []GoXExpressionScope
+	current    int
 }
 
 type extensionSpan struct {
@@ -40,19 +43,28 @@ type extensionSpan struct {
 type HighlightToken struct {
 	Start, End int
 	Kind       string
+	Scope      int // -1 outside an interpolation; otherwise an expression scope ID.
+}
+
+// GoXExpressionScope describes an embedded Go expression between interpolation
+// braces. Parent is -1 for a top-level interpolation, or the enclosing
+// expression scope when this interpolation is nested in an F/X expression.
+type GoXExpressionScope struct {
+	Start, End int
+	Parent     int
 }
 
 // GoXHighlightTokens returns tokens inside F and X expressions, including
 // their embedded Go expressions. Ordinary Go tokens are left to gopls.
 func GoXHighlightTokens(src []byte) []HighlightToken {
-	h := &highlighter{src: string(src)}
+	h := &highlighter{src: string(src), current: -1}
 	h.scanCode(0, len(src))
 	var result []HighlightToken
 	for _, t := range h.tokens {
 		for _, ext := range h.extensions {
 			if t.start >= ext.start && t.end <= ext.end {
 				kind := semanticTokenTypes[t.typ]
-				result = append(result, HighlightToken{Start: t.start, End: t.end, Kind: kind})
+				result = append(result, HighlightToken{Start: t.start, End: t.end, Kind: kind, Scope: t.scope})
 				break
 			}
 		}
@@ -61,9 +73,17 @@ func GoXHighlightTokens(src []byte) []HighlightToken {
 	return result
 }
 
+// GoXExpressionScopes returns embedded Go expression scopes in source order.
+// Nested F/X interpolations have their containing expression as Parent.
+func GoXExpressionScopes(src []byte) []GoXExpressionScope {
+	h := &highlighter{src: string(src), current: -1}
+	h.scanCode(0, len(src))
+	return append([]GoXExpressionScope(nil), h.scopes...)
+}
+
 // GoXLiteralRanges returns byte ranges for F and X expressions.
 func GoXLiteralRanges(src []byte) [][3]int {
-	h := &highlighter{src: string(src)}
+	h := &highlighter{src: string(src), current: -1}
 	h.scanCode(0, len(src))
 	ranges := make([][3]int, 0, len(h.extensions))
 	for _, ext := range h.extensions {
@@ -71,6 +91,28 @@ func GoXLiteralRanges(src []byte) [][3]int {
 	}
 	sort.Slice(ranges, func(i, j int) bool { return ranges[i][0] < ranges[j][0] })
 	return ranges
+}
+
+// GoXLiteralContainsOffset reports whether offset is inside an F or X literal.
+func GoXLiteralContainsOffset(src []byte, offset int) bool {
+	for _, r := range GoXLiteralRanges(src) {
+		if offset >= r[0] && offset < r[1] {
+			return true
+		}
+	}
+	return false
+}
+
+// GoXHasExpressionIdentifier reports whether name occurs as an identifier in
+// an embedded Go expression in an F or X literal.
+func GoXHasExpressionIdentifier(src []byte, name string) bool {
+	s := string(src)
+	for _, t := range GoXHighlightTokens(src) {
+		if t.Kind == "variable" && t.End-t.Start == len(name) && s[t.Start:t.End] == name {
+			return true
+		}
+	}
+	return false
 }
 
 // MaskGoXLiterals replaces each GoX expression with a same-length Go
@@ -152,7 +194,19 @@ func (h *highlighter) add(start, end int, typ string) {
 	if start < 0 || end > len(h.src) || end <= start {
 		return
 	}
-	h.tokens = append(h.tokens, semanticToken{start, end, semanticTokenIndex[typ]})
+	h.tokens = append(h.tokens, semanticToken{start: start, end: end, typ: semanticTokenIndex[typ], scope: h.current})
+}
+
+// scanGoExpression enters a child lexical scope and scans its contents using
+// the Go-code scanner. Nested F/X literals found there recursively create
+// further expression scopes.
+func (h *highlighter) scanGoExpression(start, end int) {
+	parent := h.current
+	scope := len(h.scopes)
+	h.scopes = append(h.scopes, GoXExpressionScope{Start: start, End: end, Parent: parent})
+	h.current = scope
+	h.scanCode(start, end)
+	h.current = parent
 }
 
 func (h *highlighter) scanCode(start, end int) {
@@ -166,7 +220,7 @@ func (h *highlighter) scanCode(start, end int) {
 			i = h.scanFormat(i, end)
 			continue
 		}
-		if c == 'X' && (i == start || !isIdentContinue(h.src[i-1])) && i+1 < end && h.src[i+1] == '"' {
+		if c == 'X' && (i == start || !isIdentContinue(h.src[i-1])) && i+1 < end && (h.src[i+1] == '"' || h.src[i+1] == '`') {
 			i = h.scanMarkup(i, end)
 			continue
 		}
@@ -257,7 +311,7 @@ func (h *highlighter) scanFormat(start, limit int) int {
 					h.add(i+1, limit, "variable")
 					return limit
 				}
-				h.scanCode(i+1, close)
+				h.scanGoExpression(i+1, close)
 				h.add(close, close+1, "operator")
 				i, textStart = close+1, close+1
 				continue
@@ -272,9 +326,10 @@ func (h *highlighter) scanFormat(start, limit int) int {
 
 func (h *highlighter) scanMarkup(start, limit int) int {
 	h.add(start, start+1, "macro")
+	quote := h.src[start+1]
 	i, depth, rootClosed := start+2, 0, false
 	for i < limit {
-		if rootClosed && h.src[i] == '"' {
+		if rootClosed && h.src[i] == quote {
 			h.extensions = append(h.extensions, extensionSpan{start, i + 1, 'X'})
 			return i + 1
 		}
@@ -284,14 +339,14 @@ func (h *highlighter) scanMarkup(start, limit int) int {
 			if close < 0 {
 				return limit
 			}
-			h.scanCode(i+1, close)
+			h.scanGoExpression(i+1, close)
 			h.add(close, close+1, "operator")
 			i = close + 1
 			continue
 		}
 		if h.src[i] != '<' {
 			j := i + 1
-			for j < limit && h.src[j] != '<' && h.src[j] != '{' && !(rootClosed && h.src[j] == '"') {
+			for j < limit && h.src[j] != '<' && h.src[j] != '{' && !(rootClosed && h.src[j] == quote) {
 				j++
 			}
 			h.add(i, j, "string")
@@ -352,7 +407,7 @@ func (h *highlighter) scanMarkup(start, limit int) int {
 				if close < 0 {
 					return limit
 				}
-				h.scanCode(i+1, close)
+				h.scanGoExpression(i+1, close)
 				h.add(close, close+1, "operator")
 				i = close + 1
 				continue
@@ -405,6 +460,27 @@ func findHoleEnd(src string, start, limit int) int {
 	depth := 1
 	for i := start; i < limit; {
 		c := src[i]
+		// Interpolations contain Go expressions, so an expression may itself
+		// contain an F or X literal. Skip that complete literal here; treating
+		// its quotes as ordinary Go quotes (especially for X markup) can make
+		// a brace inside the nested literal look like the end of this hole.
+		if (c == 'F' || c == 'X') && (i == start || !isIdentContinue(src[i-1])) && i+1 < limit {
+			h := highlighter{src: src}
+			if c == 'F' && (src[i+1] == '"' || src[i+1] == '`') {
+				j := h.scanFormat(i, limit)
+				if j > i {
+					i = j
+					continue
+				}
+			}
+			if c == 'X' && (src[i+1] == '"' || src[i+1] == '`') {
+				j := h.scanMarkup(i, limit)
+				if j > i {
+					i = j
+					continue
+				}
+			}
+		}
 		if c == '"' || c == '\'' || c == '`' {
 			i++
 			for i < limit {

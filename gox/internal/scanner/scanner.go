@@ -842,7 +842,7 @@ scanAgain:
 	switch ch := s.ch; {
 	case isLetter(ch):
 		lit = s.scanIdentifier()
-		if s.mode&GoX != 0 && ((lit == "F" && (s.ch == '"' || s.ch == '`')) || (lit == "X" && s.ch == '"')) {
+		if s.mode&GoX != 0 && ((lit == "F" && (s.ch == '"' || s.ch == '`')) || (lit == "X" && (s.ch == '"' || s.ch == '`'))) {
 			quote := s.ch
 			s.next()
 			s.insertSemi = false

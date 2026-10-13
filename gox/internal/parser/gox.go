@@ -360,13 +360,17 @@ func (p *parser) templateSlot(t *templateBuilder, typ ast.Expr, value ast.Expr) 
 }
 func (p *parser) parseMarkup(wrapped bool) ast.Expr {
 	defer p.enterExtension()()
+	quote := '"'
 	if wrapped {
+		if len(p.lit) > 0 {
+			quote = rune(p.lit[0])
+		}
 		p.scanner.Space()
 	}
 	m := p.readMarkup(!wrapped)
 	if wrapped {
 		p.scanner.Space()
-		p.rawExpect('"')
+		p.rawExpect(quote)
 	}
 	p.scanner.Semi(true)
 	p.next()

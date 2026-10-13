@@ -72,12 +72,12 @@ func (p *parser) dep(path string) string {
 // supplied as an import by the transformer, so GoX users can name runtime
 // types such as vdom.Node without adding a package import themselves.
 func (p *parser) runtime(name string) ast.Expr { return sel(ident(p.dep(runtimePath)), name) }
-func (p *parser) finishGoX(f *ast.File) {
+func (p *parser) finishGoX(f *ast.File) bool {
 	if p.mode&GoX != 0 && usesSelector(f, "vdom") && !hasImportName(f, "vdom") {
 		p.extraImports[runtimePath] = "vdom"
 	}
 	if len(p.extraImports) == 0 {
-		return
+		return false
 	}
 	uniqueAST(reflect.ValueOf(f), map[uintptr]bool{})
 	resolveFile(f, p.file, nil)
@@ -124,6 +124,7 @@ func (p *parser) finishGoX(f *ast.File) {
 		f.Decls[at] = decl
 	}
 	f.Decls = append(f.Decls, p.extraDecls...)
+	return true
 }
 
 func usesSelector(f *ast.File, name string) bool {
@@ -359,13 +360,17 @@ func (p *parser) templateSlot(t *templateBuilder, typ ast.Expr, value ast.Expr) 
 }
 func (p *parser) parseMarkup(wrapped bool) ast.Expr {
 	defer p.enterExtension()()
+	quote := '"'
 	if wrapped {
+		if len(p.lit) > 0 {
+			quote = rune(p.lit[0])
+		}
 		p.scanner.Space()
 	}
 	m := p.readMarkup(!wrapped)
 	if wrapped {
 		p.scanner.Space()
-		p.rawExpect('"')
+		p.rawExpect(quote)
 	}
 	p.scanner.Semi(true)
 	p.next()

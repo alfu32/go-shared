@@ -39,8 +39,8 @@ of scope. Formatting itself is eager; repeated evaluation belongs to components.
 
 `.gox` files opt into extensions. Ordinary `.go` files retain stock semantics.
 In GoX mode, uppercase `F` and `X` introduce literals only when immediately
-adjacent to their opening delimiter. `F` supports quotes and backticks; the
-initial `X` form uses double quotes. `do` and `component` are contextual
+adjacent to their opening delimiter. `F` and `X` support quotes and backticks.
+`do` and `component` are contextual
 introducers. Ordinary identifiers such as `F`, `X`, `do()` and `component.Field`
 remain legal. The earlier lowercase s prefix and view introducer are superseded,
 not compatibility aliases. Malformed recognized extensions produce diagnostics.
@@ -67,7 +67,7 @@ StringExpr     = "F" ( QuotedSE | RawSE ) .
 Interpolation  = "{" Expression "}" .
 LocalFunction  = "func" identifier Signature Block .
 BlockExpr      = "do" Type Block .
-XExpr          = "X" QuotedMarkup .
+XExpr          = "X" ( QuotedMarkup | RawMarkup ) .
 BareJSX        = Element .  (* milestone 2; expression-start position only *)
 ComponentDecl  = "component" identifier "(" [ Parameters ] ")" Block .
 Element        = "<" Tag { Attribute } ( "/>" | ">" { Child } "</" Tag ">" ) .
@@ -232,7 +232,9 @@ element closes, optional whitespace and the outer closing quote end X. Multiline
 markup is allowed. Quotes in child text are literal; text after the root other
 than whitespace is an error. Quoted attributes use Go string escapes; child
 text does not. Preserve text whitespace, normalizing CRLF only. Use `{"{"}` or
-`{"<"}` for structural characters. Raw/backtick X delimiters are deferred.
+`{"<"}` for structural characters. Raw/backtick X strings may span lines and
+follow Go raw string rules, including removal of carriage returns. A backtick
+cannot appear inside a raw X literal.
 
 Nested child elements need no prefix. Interpolation expressions can contain
 F, X, typed blocks and ordinary Go closures recursively. An unterminated

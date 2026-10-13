@@ -220,7 +220,7 @@ func (h *highlighter) scanCode(start, end int) {
 			i = h.scanFormat(i, end)
 			continue
 		}
-		if c == 'X' && (i == start || !isIdentContinue(h.src[i-1])) && i+1 < end && h.src[i+1] == '"' {
+		if c == 'X' && (i == start || !isIdentContinue(h.src[i-1])) && i+1 < end && (h.src[i+1] == '"' || h.src[i+1] == '`') {
 			i = h.scanMarkup(i, end)
 			continue
 		}
@@ -326,9 +326,10 @@ func (h *highlighter) scanFormat(start, limit int) int {
 
 func (h *highlighter) scanMarkup(start, limit int) int {
 	h.add(start, start+1, "macro")
+	quote := h.src[start+1]
 	i, depth, rootClosed := start+2, 0, false
 	for i < limit {
-		if rootClosed && h.src[i] == '"' {
+		if rootClosed && h.src[i] == quote {
 			h.extensions = append(h.extensions, extensionSpan{start, i + 1, 'X'})
 			return i + 1
 		}
@@ -345,7 +346,7 @@ func (h *highlighter) scanMarkup(start, limit int) int {
 		}
 		if h.src[i] != '<' {
 			j := i + 1
-			for j < limit && h.src[j] != '<' && h.src[j] != '{' && !(rootClosed && h.src[j] == '"') {
+			for j < limit && h.src[j] != '<' && h.src[j] != '{' && !(rootClosed && h.src[j] == quote) {
 				j++
 			}
 			h.add(i, j, "string")
@@ -472,7 +473,7 @@ func findHoleEnd(src string, start, limit int) int {
 					continue
 				}
 			}
-			if c == 'X' && src[i+1] == '"' {
+			if c == 'X' && (src[i+1] == '"' || src[i+1] == '`') {
 				j := h.scanMarkup(i, limit)
 				if j > i {
 					i = j
